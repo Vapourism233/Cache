@@ -55,6 +55,7 @@ private:
     }
 
     void addToGhost(NodePtr node) {
+        ghostCache_[node->getKey()] = node;
         node->next = ghostHead_->next;
         node->prev = ghostHead_;
         ghostHead_->next->prev = node;
@@ -95,7 +96,21 @@ private:
         node->prev.reset();
     }
 
-    bool checkGhost(const Key& key) {
+public:
+    bool increaseCapacity(){
+        capacity_++;
+        return true;
+    }
+
+    bool decreaseCapacity(){
+        if(capacity_ <= 0) return false;
+        if(mainCache_.size() >= capacity_){
+            evictLeastRecent();
+        }
+        capacity_--;
+        return true;
+    }
+bool checkGhost(const Key& key) {
         auto it = ghostCache_.find(key);
         if(it != ghostCache_.end()){
             if(mainCache_.size() <= capacity_){
@@ -114,20 +129,6 @@ private:
         return false;
     }
 
-    void increaseCapacity(){
-        capacity_++;
-    }
-
-    bool decreaseCapacity(){
-        if(capacity_ <= 0) return false;
-        if(mainCache_.size() >= capacity_){
-            evictLeastRecent();
-        }
-        capacity_--;
-        return true;
-    }
-
-public:
 bool get(const Key& key, Value& value, bool& shouldTransform) {
         auto it = mainCache_.find(key);
         if(it != mainCache_.end()) {

@@ -7,7 +7,7 @@ CXX = g++
 # -std=c++11: Use C++11 standard
 # -Wall: Enable all warnings
 # -g: Generate debugging information
-CXXFLAGS = -std=c++11 -Wall -g
+CXXFLAGS = -std=c++14 -Wall -g
 
 # Target executable
 TARGET = test_lru
