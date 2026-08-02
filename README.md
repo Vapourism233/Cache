@@ -1,150 +1,143 @@
-# Cache Implementation & Benchmarking
-
-一个全面的缓存实现项目，包括多种缓存算法的设计、实现与性能对标。
-
-## 📦 项目结构
-
-```
 Cache/
-├── LRU.h                    # 基础 LRU 缓存实现
-├── LFUK.cpp                 # LFU-K 缓存实现
-├── LRUK.h                   # LRU-K 缓存实现
-├── HashLRU.cpp              # 带分片并发的 LRU（线程安全）
-├── HashLFU.cpp              # 带分片并发的 LFU（线程安全）
-├── ARC/                     # ARC（自适应替换缓存）协调器设计
-│   ├── ARCCache.cpp         # ARC 主协调器
-│   ├── ARCLFUPart.cpp       # ARC 中的 LFU 部分
-│   ├── ARCLRUPart.cpp       # ARC 中的 LRU 部分
-│   └── ARCKCacheNode.h      # ARC 节点定义
-├── Makefile                 # 编译配置
-├── test_lru.cpp             # LRU 单元测试
-├── test_lruk_run.cpp        # LRU-K 单元测试
-├── benchmark_hitrate.cpp    # 多场景命中率基准测试
+├── LRU.h                    # Basic LRU cache implementation
+├── LFUK.cpp                 # LFU-K cache implementation
+├── LRUK.h                   # LRU-K cache implementation
+├── HashLRU.cpp              # LRU with sharded concurrency (thread-safe)
+├── HashLFU.cpp              # LFU with sharded concurrency (thread-safe)
+├── ARC/                     # ARC (Adaptive Replacement Cache) coordinator design
+│   ├── ARCCache.cpp         # ARC main coordinator
+│   ├── ARCLFUPart.cpp       # LFU portion in ARC
+│   ├── ARCLRUPart.cpp       # LRU portion in ARC
+│   └── ARCKCacheNode.h      # ARC node definition
+├── Makefile                 # Compilation configuration
+├── test_lru.cpp             # LRU unit test
+├── test_lruk_run.cpp        # LRU-K unit test
+├── benchmark_hitrate.cpp    # Multi-scenario hit rate benchmark
 └── README.md
-```
+```[cite: 1]
 
-## 🎯 已实现的缓存算法
+## 🎯 Implemented Caching Algorithms[cite: 1]
 
-### 1. **LRU (Least Recently Used)**
-- 文件：`LRU.h`
-- 特点：基于访问时间戳，最近未访问的项被淘汰
-- 时间复杂度：O(1) get/put
-- 空间复杂度：O(capacity)
-- 适用场景：时间局部性强的工作负载
+### 1. **LRU (Least Recently Used)**[cite: 1]
+- File: `LRU.h`[cite: 1]
+- Features: Based on access timestamps; the least recently unaccessed item is evicted[cite: 1].
+- Time Complexity: O(1) get/put[cite: 1]
+- Space Complexity: O(capacity)[cite: 1]
+- Applicable Scenarios: Workloads with strong temporal locality[cite: 1]
 
-### 2. **LFU (Least Frequently Used)**  
-- 文件：`LFUK.cpp`
-- 特点：基于访问频率，最少被访问的项被淘汰
-- 数据结构：频率桶 + 频率内 LRU 排序
-- 时间复杂度：O(1) get/put
-- 空间复杂度：O(capacity)
-- 适用场景：热点集中的工作负载
+### 2. **LFU (Least Frequently Used)**[cite: 1]
+- File: `LFUK.cpp`[cite: 1]
+- Features: Based on access frequency; the least frequently accessed item is evicted[cite: 1].
+- Data Structures: Frequency buckets + intra-frequency LRU sorting[cite: 1]
+- Time Complexity: O(1) get/put[cite: 1]
+- Space Complexity: O(capacity)[cite: 1]
+- Applicable Scenarios: Workloads with concentrated hotspots[cite: 1]
 
-### 3. **LRU-K**
-- 文件：`LRUK.h`
-- 特点：跟踪最后 K 次访问，只有被访问 K 次的项才进入主缓存
-- 优势：更好地区分热点与冷数据
-- 适用场景：有明显热冷区分的场景
+### 3. **LRU-K**[cite: 1]
+- File: `LRUK.h`[cite: 1]
+- Features: Tracks the last $K$ accesses; items enter the main cache only after being accessed $K$ times[cite: 1].
+- Advantages: Better discrimination between hot spots and cold data[cite: 1]
+- Applicable Scenarios: Scenarios with distinct hot/cold data separation[cite: 1]
 
-### 4. **HashLRU/HashLFU (并发版本)**
-- 文件：`HashLRU.cpp`, `HashLFU.cpp`
-- 特点：将缓存分片成多个小缓存，每个分片独立上锁（分片锁方案）
-- 并发度：可配置的分片数（默认 CPU 核数）
-- 适用场景：多线程高并发环境
+### 4. **HashLRU/HashLFU (Concurrent Versions)**[cite: 1]
+- File: `HashLRU.cpp`, `HashLFU.cpp`[cite: 1]
+- Features: Partitions the cache into multiple smaller caches, with each partition independently locked (sharded lock scheme)[cite: 1].
+- Concurrency Level: Configurable number of shards (default is the number of CPU cores)[cite: 1]
+- Applicable Scenarios: Multi-threaded, high-concurrency environments[cite: 1]
 
-### 5. **ARC (Adaptive Replacement Cache)**
-- 文件：`ARC/ARCCache.cpp`
-- 特点：自适应组合 LRU 和 LFU，通过 Ghost Cache 自动调整两部分容量
-- 架构：
-  - 协调器 (ARCCache) 管理总容量
-  - LFU 部分 (ARCLFUPart) 用频率桶管理热点
-  - LRU 部分 (ARCLRUPart) 用链表管理最近访问
-  - 此消彼长：当某部分的 ghost cache 命中时，该部分容量 +1，另一部分 -1
-- 状态：✅ 基础架构完成，⚠️ 小容量边界条件有 bug
+### 5. **ARC (Adaptive Replacement Cache)**[cite: 1]
+- File: `ARC/ARCCache.cpp`[cite: 1]
+- Features: Adaptively combines LRU and LFU, automatically adjusting the capacities of both parts via a Ghost Cache[cite: 1].
+- Architecture[cite: 1]:
+  - Coordinator (`ARCCache`) manages total capacity[cite: 1].
+  - LFU portion (`ARCLFUPart`) manages hot spots using frequency buckets[cite: 1].
+  - LRU portion (`ARCLRUPart`) manages recent accesses using a linked list[cite: 1].
+  - Push-and-pull mechanism: When a hit occurs in a part's ghost cache, that part's capacity is increased by 1, and the other part's capacity is decreased by 1[cite: 1].
+- Status: ✅ Basic architecture complete, ⚠️ Bug present in small-capacity edge cases[cite: 1].
 
-## 🧪 测试与基准
+## 🧪 Testing & Benchmarking[cite: 1]
 
-### 单元测试
+### Unit Tests[cite: 1]
 ```bash
-# LRU 测试
+# LRU test
 make test_lru
 
-# LRU-K 测试  
+# LRU-K test  
 make test_lruk_run
 
-# ARC 基础测试
+# ARC basic test
 g++ -std=c++14 -Wall -g ARC/test_arc_lfu.cpp -o test_arc_lfu && ./test_arc_lfu
-```
+```[cite: 1]
 
-### 性能基准测试
+### Performance Benchmarking[cite: 1]
 ```bash
-# 编译
+# Compile
 g++ -std=c++14 -Wall -O2 -o benchmark_hitrate benchmark_hitrate.cpp
 
-# 运行
+# Run
 ./benchmark_hitrate
-```
+```[cite: 1]
 
-**测试规模**：
-- 工作集大小：100,000 个不同的 key
-- 访问总数：1,000,000 次
-- 容量范围：20、100、1000
+**Test Scale**[cite: 1]:
+- Working set size: 100,000 distinct keys[cite: 1]
+- Total accesses: 1,000,000 times[cite: 1]
+- Capacity range: 20, 100, 1000[cite: 1]
 
-**测试场景**：
-1. **Hotspot (80-20)**: 20% 的 key 占 80% 的访问
-2. **Time Locality**: 最近访问的 key 更容易再被访问
-3. **Periodic**: 周期性的访问模式
-4. **Uniform Random**: 完全随机访问
+**Test Scenarios**[cite: 1]:
+1. **Hotspot (80-20)**: 20% of keys account for 80% of accesses[cite: 1]
+2. **Time Locality**: Recently accessed keys are more likely to be accessed again[cite: 1]
+3. **Periodic**: Periodic access patterns[cite: 1]
+4. **Uniform Random**: Completely random access[cite: 1]
 
-## 📊 基准测试结果
+## 📊 Benchmark Results[cite: 1]
 
-### 平均命中率排名
+### Average Hit Rate Rankings[cite: 1]
 
-| Workload | 最优 | 次优 | 差异 |
-|----------|------|------|------|
-| **Hotspot** | LFU | LRU | LFU +21% |
-| **Time Locality** | 平手 | - | 无差异 (~65%) |
-| **Periodic** | LFU | LRU | LFU +7% |
-| **Random** | 平手 | - | 无差异 (~0.4%) |
+| Workload | Best | Runner-up | Difference |
+|----------|------|-----------|------------|
+| **Hotspot** | LFU | LRU | LFU +21%[cite: 1] |
+| **Time Locality** | Tie | - | No difference (~65%)[cite: 1] |
+| **Periodic** | LFU | LRU | LFU +7%[cite: 1] |
+| **Random** | Tie | - | No difference (~0.4%)[cite: 1] |
 
-### 性能对比
+### Performance Comparison[cite: 1]
 
-| 缓存 | 相对速度 | 内存开销 | 适用场景 |
-|-----|---------|---------|---------|
-| LRU | 基准 (1x) | 低 | 通用，时间局部性强 |
-| LFU | 慢 (3-5x) | 中等 | 热点集中 |
-| LRU-K | 较慢 (2-3x) | 中等 | 热冷区分明显 |
-| HashLRU | 基准 (1x) | 低 | 多线程高并发 |
-| HashLFU | 慢 (3-5x) | 中等 | 并发热点场景 |
-| ARC | 中等 (1.5-2x)* | 中等 | 自适应通用** |
+| Cache | Relative Speed | Memory Overhead | Applicable Scenarios |
+|-------|----------------|-----------------|----------------------|
+| LRU | Baseline (1x)[cite: 1] | Low[cite: 1] | General purpose, strong temporal locality[cite: 1] |
+| LFU | Slow (3-5x)[cite: 1] | Medium[cite: 1] | Concentrated hotspots[cite: 1] |
+| LRU-K | Slower (2-3x)[cite: 1] | Medium[cite: 1] | Clear hot/cold distinction[cite: 1] |
+| HashLRU | Baseline (1x)[cite: 1] | Low[cite: 1] | Multi-threaded high concurrency[cite: 1] |
+| HashLFU | Slow (3-5x)[cite: 1] | Medium[cite: 1] | Concurrent hotspot scenarios[cite: 1] |
+| ARC | Medium (1.5-2x)*[cite: 1] | Medium[cite: 1] | Adaptive general-purpose**[cite: 1] |
 
-*当前 ARC 在小容量下有 bug，性能数据不完整
-**待修复完整性问题
+*\* ARC currently has a bug under small capacities; performance data is incomplete[cite: 1].*  
+*\*\* Pending fixes for integrity issues[cite: 1].*
 
-## 🔧 编译与使用
+## 🔧 Compilation & Usage[cite: 1]
 
-### 编译要求
-- C++14 或更高
-- macOS/Linux/Windows (POSIX 兼容)
-- g++ 或 clang++
+### Compilation Requirements[cite: 1]
+- C++14 or higher[cite: 1]
+- macOS/Linux/Windows (POSIX compatible)[cite: 1]
+- g++ or clang++[cite: 1]
 
-### 基本编译
+### Basic Compilation[cite: 1]
 ```bash
-# 使用 Makefile
+# Using Makefile
 make
 
-# 或手动编译
+# Or manual compilation
 g++ -std=c++14 -Wall -O2 -o your_program your_file.cpp
-```
+```[cite: 1]
 
-### 基本使用示例
+### Basic Usage Examples[cite: 1]
 
-**LRU 缓存**：
+**LRU Cache**[cite: 1]:
 ```cpp
 #include "LRU.h"
 
 int main() {
-    LRUCache<int, int> cache(100);  // 容量 100
+    LRUCache<int, int> cache(100);  // Capacity 100
     
     cache.put(1, 100);
     int value;
@@ -153,14 +146,14 @@ int main() {
     }
     return 0;
 }
-```
+```[cite: 1]
 
-**LFU 缓存**：
+**LFU Cache**[cite: 1]:
 ```cpp
 #include "LFUK.cpp"
 
 int main() {
-    LFUKCache<int, int> cache(100);  // 容量 100
+    LFUKCache<int, int> cache(100);  // Capacity 100
     
     cache.put(1, 100);
     int value;
@@ -169,14 +162,14 @@ int main() {
     }
     return 0;
 }
-```
+```[cite: 1]
 
-**并发 LRU**：
+**Concurrent LRU**[cite: 1]:
 ```cpp
 #include "HashLRU.cpp"
 
 int main() {
-    HashLRUKCache<int, int> cache(100, 8);  // 容量 100, 8 个分片
+    HashLRUKCache<int, int> cache(100, 8);  // Capacity 100, 8 shards
     
     cache.put(1, 100);
     int value;
@@ -185,14 +178,14 @@ int main() {
     }
     return 0;
 }
-```
+```[cite: 1]
 
-**ARC 缓存**：
+**ARC Cache**[cite: 1]:
 ```cpp
 #include "ARC/ARCCache.cpp"
 
 int main() {
-    ARCCache<int, int> cache(100, 5);  // 容量 100, transformThreshold=5
+    ARCCache<int, int> cache(100, 5);  // Capacity 100, transformThreshold=5
     
     cache.put(1, 100);
     int value;
@@ -201,57 +194,58 @@ int main() {
     }
     return 0;
 }
-```
+```[cite: 1]
 
-## 🐛 已知问题
+## 🐛 Known Issues[cite: 1]
 
-### ARC 边界条件 Bug
-- **症状**：容量较小时（≤20）在特定热点 workload 下段错误
-- **触发条件**：热点访问模式，容量 5-20，大工作集（10k+ keys）
-- **影响**：容量 ≥ 20 时正常，容量 < 5 时可靠性不确定
-- **根本原因**：尚未定位，可能在 ghost cache 协调或容量衰减逻辑
-- **status**：待修复
+### ARC Edge Case Bug[cite: 1]
+- **Symptoms**: Segmentation fault under specific hotspot workloads when capacity is small ($\le 20$)[cite: 1].
+- **Trigger Conditions**: Hotspot access pattern, capacity of 5-20, large working set (10k+ keys)[cite: 1].
+- **Impact**: Works normally when capacity $\ge 20$; reliability uncertain when capacity $< 5$[cite: 1].
+- **Root Cause**: Not yet localized; likely in ghost cache coordination or capacity decay logic[cite: 1].
+- **Status**: Pending fix[cite: 1].
 
-### HashLRU/HashLFU 编译问题  
-- **症状**：LFUK.cpp 多次 include 导致类重定义
-- **solution**：需要将 LFUK.cpp 改为头文件或使用 include guards
-- **status**：待改进
+### HashLRU/HashLFU Compilation Issues[cite: 1]  
+- **Symptoms**: Multiple inclusions of `LFUK.cpp` lead to class redefinition errors[cite: 1].
+- **Solution**: Convert `LFUK.cpp` into a header file or use include guards[cite: 1].
+- **Status**: Pending improvement[cite: 1].
 
-## 📈 下一步改进方向
+## 📈 Next Steps & Improvements[cite: 1]
 
-### 优先级高
-1. [ ] 修复 ARC 小容量段错误
-2. [ ] 修复 HashLFU 编译问题，纳入基准测试
-3. [ ] 实现 W-TinyLFU（LRU + 概率筛选的混合方案）
-4. [ ] 添加多线程并发测试
+### High Priority[cite: 1]
+1. [ ] Fix the ARC small-capacity segmentation fault[cite: 1]
+2. [ ] Fix HashLFU compilation issues and integrate it into benchmarks[cite: 1]
+3. [ ] Implement W-TinyLFU (hybrid scheme combining LRU + probabilistic filtering)[cite: 1]
+4. [ ] Add multi-threaded concurrency testing[cite: 1]
 
-### 优先级中
-5. [ ] 实现 CLOCK 替换算法（LRU 近似）
-6. [ ] 添加 TTL (Time To Live) 支持
-7. [ ] 实现 Bloom Filter 优化 miss 检测
-8. [ ] 性能分析（缓存行对齐、SIMD 优化）
+### Medium Priority[cite: 1]
+5. [ ] Implement the CLOCK replacement algorithm (LRU approximation)[cite: 1]
+6. [ ] Add TTL (Time To Live) support[cite: 1]
+7. [ ] Implement Bloom Filter optimization for miss detection[cite: 1]
+8. [ ] Performance profiling (cache line alignment, SIMD optimization)[cite: 1]
 
-### 优先级低  
-9. [ ] 支持更大的数据类型（string, custom object）
-10. [ ] 分布式缓存设计（一致性哈希、网络协议）
+### Low Priority[cite: 1]  
+9. [ ] Support larger data types (std::string, custom objects)[cite: 1]
+10. [ ] Distributed cache design (consistent hashing, network protocols)[cite: 1]
 
-## 📚 参考资源
+## 📚 References[cite: 1]
 
-- **LRU**: Cache 替换策略经典算法
-- **LFU**: O(1) 时间复杂度实现，使用频率桶
-- **LRU-K**: IBM Research 论文《A Comparative Study of LRU and Clock Algorithms for Page Replacement》
-- **ARC**: IBM Nimble 系统论文《ARC: A Self-Tuning, Low Overhead Replacement Cache》
-- **并发哈希表**: Google Abseil 的分片锁方案
+- **LRU**: Classic cache replacement policy algorithm[cite: 1]
+- **LFU**: O(1) time complexity implementation using frequency buckets[cite: 1]
+- **LRU-K**: IBM Research paper *"A Comparative Study of LRU and Clock Algorithms for Page Replacement"*[cite: 1]
+- **ARC**: IBM Nimble system paper *"ARC: A Self-Tuning, Low Overhead Replacement Cache"*[cite: 1]
+- **Concurrent Hash Table**: Google Abseil's sharded lock scheme[cite: 1]
 
-## 📝 许可证
+## 📝 License[cite: 1]
 
-MIT License
+MIT License[cite: 1]
 
-## 👤 作者
+## 👤 Author[cite: 1]
 
-Created as a learning project in cache algorithm design and implementation.
+Jiang Sunny. 
+Created as a learning project in cache algorithm design and implementation[cite: 1].
 
 ---
 
-**最后更新**：2026-08-02  
-**项目版本**：v0.5 (ARC 基础架构完成，性能对标完成，待边界条件修复)
+**Last Updated**: 2026-08-02[cite: 1]  
+**Project Version**: v0.5 (ARC architecture complete, performance benchmarking complete, pending edge case fixes)[cite: 1]
