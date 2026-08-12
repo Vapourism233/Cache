@@ -115,12 +115,12 @@ g++ -std=c++14 -Wall -O2 -o benchmark benchmark_hitrate.cpp
 - Cache capacities: 20 / 100 / 1000
 
 ### Results
-## 1. Summary of winners in hit rate scale -->
-Workload	Winner	ARC	best non-ARC
-Hotspot 80/20	ARC	0.496	0.439 (LFU)
-TimeLocality	ARC	0.738	0.712 (LFU)
-UniformRandom	ARC	0.241	0.173 (LRU)
-Periodic	tie	1.00	1.00
+## 1. Summary of winners in hit rate scale
+**| Workload | Winner | ARC | best non-ARC |** 
+| **Hotspot** | 80/20 | ARC | 0.496 | 0.439 (LFU) |
+| **TimeLocality** | ARC | 0.738 | 0.712 (LFU) |
+| **UniformRandom** | ARC | 0.241 | 0.173 (LRU) |
+| **Periodic** | tie | 1.00 | 1.00 |
 
 # The average hit rate of every strategy is listed here:
 Hotspot(80-20):
@@ -157,8 +157,15 @@ UniformRandom:
 
 # 2. Average time needed for each strategy to process 1,000,000 accesses (in seconds):
 Latency — time for 300k ops, at capacity 2000 (lower is better)
-LRU	LRU-K	HashLRU	ARC	HashLFU	LFU
-~15 ms	~44 ms	~47 ms	~65 ms	~614 ms	~2124 ms
+
+**| Latency | File | Time consumption |**
+|----------|------|-------------|--------|
+| **LRU** | [LRU.h](LRU.h) | ~15 ms |
+| **LRU-K** | [LRUK.h](LRUK.h) | ~44 ms |
+| **LFU** | [LFUK.h](headers/LFUK.h) | ~2124 ms |
+| **ARC** | [ARC/](ARC/) | ~65 ms |
+| **HashLRU** | [HashLRU.cpp](HashLRU.cpp) | ~47 ms |
+| **HashLFU** | [HashLFU.cpp](HashLFU.cpp) | ~614 ms |
 
 Conclusion: LRU is 3-5x faster than LFU, but LFU has a higher hit rate in hotspot workloads. And the conbination of LRU and LFU in ARC achieves the best hit rate across all workloads, with an acceptable time consumption tradeoff.
 
