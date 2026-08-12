@@ -22,7 +22,7 @@ This project implements several classic cache eviction algorithms from scratch, 
 | **LRU** | [LRU.h](LRU.h) | Least Recently Used, doubly-linked list + hash table | ✅ Stable |
 | **LRU-K** | [LRUK.h](LRUK.h) | LRU variant, requires K accesses before entering main cache, resists burst traffic | ✅ Stable |
 | **LFU** | [LFUK.h](headers/LFUK.h) | Least Frequently Used, frequency-bucket design with average-frequency decay | ✅ Stable |
-| **ARC** | [ARC/](ARC/) | Adaptive Replacement Cache, LRU + LFU dual-part coordinator | ⚠️ Has boundary bug |
+| **ARC** | [ARC/](ARC/) | Adaptive Replacement Cache, LRU + LFU dual-part coordinator | ✅ Stable |
 | **HashLRU** | [HashLRU.cpp](HashLRU.cpp) | Sharded concurrent LRU-K, reduces lock contention | ✅ Stable |
 | **HashLFU** | [HashLFU.cpp](HashLFU.cpp) | Sharded concurrent LFU | ✅ Stable |
 
