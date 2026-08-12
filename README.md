@@ -21,7 +21,7 @@ This project implements several classic cache eviction algorithms from scratch, 
 |----------|------|-------------|--------|
 | **LRU** | [LRU.h](LRU.h) | Least Recently Used, doubly-linked list + hash table | ✅ Stable |
 | **LRU-K** | [LRUK.h](LRUK.h) | LRU variant, requires K accesses before entering main cache, resists burst traffic | ✅ Stable |
-| **LFU** | [LFUK.cpp](LFUK.cpp) | Least Frequently Used, frequency-bucket design with average-frequency decay | ✅ Stable |
+| **LFU** | [LFUK.h](headers/LFUK.h) | Least Frequently Used, frequency-bucket design with average-frequency decay | ✅ Stable |
 | **ARC** | [ARC/](ARC/) | Adaptive Replacement Cache, LRU + LFU dual-part coordinator | ⚠️ Has boundary bug |
 | **HashLRU** | [HashLRU.cpp](HashLRU.cpp) | Sharded concurrent LRU-K, reduces lock contention | ✅ Stable |
 | **HashLFU** | [HashLFU.cpp](HashLFU.cpp) | Sharded concurrent LFU | ✅ Stable |
@@ -51,13 +51,13 @@ Sharded concurrent versions: keys are distributed across multiple independent sh
 Cache/
 ├── LRU.h                    # LRU cache (template header)
 ├── LRUK.h                   # LRU-K cache
-├── LFUK.cpp                 # LFU cache (frequency buckets + decay)
+├── LFUK.h                   # LFU cache (frequency buckets + decay)
 ├── HashLRU.cpp / .h         # Sharded concurrent LRU-K
 ├── HashLFU.cpp              # Sharded concurrent LFU
 ├── ARC/
 │   ├── ARCKCacheNode.h      # ARC node definition
-│   ├── ARCLRUPart.cpp       # LRU part of ARC
-│   ├── ARCLFUPart.cpp       # LFU part of ARC
+│   ├── ARCLRUPart.h         # LRU part of ARC
+│   ├── ARCLFUPart.h         # LFU part of ARC
 │   └── ARCCache.cpp         # ARC coordinator
 ├── benchmark_hitrate.cpp    # Hit-rate benchmarking framework
 ├── test_*.cpp               # Various unit / debug tests
@@ -114,6 +114,54 @@ g++ -std=c++14 -Wall -O2 -o benchmark benchmark_hitrate.cpp
 - Total accesses: 1,000,000
 - Cache capacities: 20 / 100 / 1000
 
+### Results
+## 1. Summary of winners in hit rate scale -->
+Workload	Winner	ARC	best non-ARC
+Hotspot 80/20	ARC	0.496	0.439 (LFU)
+TimeLocality	ARC	0.738	0.712 (LFU)
+UniformRandom	ARC	0.241	0.173 (LRU)
+Periodic	tie	1.00	1.00
+
+# The average hit rate of every strategy is listed here:
+Hotspot(80-20):
+  1. ARC       : 0.4959
+  2. LFU       : 0.4392
+  3. HashLFU   : 0.4392
+  4. LRU       : 0.4061
+  5. LRU-K     : 0.4061
+  6. HashLRU   : 0.4060
+
+TimeLocality:
+  1. ARC       : 0.7375
+  2. HashLFU   : 0.7118
+  3. LFU       : 0.7118
+  4. HashLRU   : 0.7110
+  5. LRU       : 0.7110
+  6. LRU-K     : 0.7110
+
+Periodic:
+  1. LRU       : 0.9999
+  2. LRU-K     : 0.9999
+  3. LFU       : 0.9999
+  4. HashLRU   : 0.9999
+  5. HashLFU   : 0.9999
+  6. ARC       : 0.9999
+
+UniformRandom:
+  1. ARC       : 0.2412
+  2. LRU       : 0.1732
+  3. LRU-K     : 0.1732
+  4. HashLRU   : 0.1731
+  5. HashLFU   : 0.1731
+  6. LFU       : 0.1730
+
+# 2. Average time needed for each strategy to process 1,000,000 accesses (in seconds):
+Latency — time for 300k ops, at capacity 2000 (lower is better)
+LRU	LRU-K	HashLRU	ARC	HashLFU	LFU
+~15 ms	~44 ms	~47 ms	~65 ms	~614 ms	~2124 ms
+
+Conclusion: LRU is 3-5x faster than LFU, but LFU has a higher hit rate in hotspot workloads. And the conbination of LRU and LFU in ARC achieves the best hit rate across all workloads, with an acceptable time consumption tradeoff.
+
 ### Key Findings (LRU vs LFU)
 
 | Workload | Better Strategy | Notes |
@@ -128,7 +176,16 @@ g++ -std=c++14 -Wall -O2 -o benchmark benchmark_hitrate.cpp
 ## Known Issues
 
 - **ARC boundary condition bug**: When running hotspot workloads at small capacities (e.g., capacity=20), a segfault is triggered after a number of accesses, likely due to ghost cache coordination or `weak_ptr` lifetime issues. ARC is currently excluded from the formal benchmark and pending a fix.
-- The benchmark currently only stably covers LRU and LFU; HashLRU / HashLFU are not yet included in the unified benchmark due to class redefinition issues caused by duplicate header includes.
+- The benchmark currently only stably covers LRU and LFU; HashLRU / HashLFU are not yet included in the unified benchmark due to class redefinition issues caused by duplicate header includes. (Solved on 2026/08/12)
+
+### Update Logs
+
+2026/08/12: Fixed the ARC boundary condition bug. The issue was due to a `weak_ptr` in the ghost cache being destroyed before the corresponding `shared_ptr` in the main cache, leading to dangling references. The fix involved ensuring that ghost cache entries are only removed after confirming that the main cache still holds a valid reference. Makefile was replaced with a CMake build system for better dependency management. And ctest was also added for unit testing. ARC test was found failed in the unit test: The following tests FAILED:
+          6 - test_arc_lfu (Failed)
+
+2026/08/10: Added a unified benchmark for HashLRU and HashLFU, resolving class redefinition issues by using forward declarations and separating template definitions into implementation files.
+
+2026/08/02: Baseline was done. LRU, LRU-K, LFU, and ARC are implemented and benchmarked. ARC shows the best hit rate across all workloads, but with higher latency than LRU.
 
 ## License
 

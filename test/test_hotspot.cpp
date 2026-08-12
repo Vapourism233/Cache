@@ -3,7 +3,7 @@
 #include <random>
 #include <chrono>
 #include "LRU.h"
-#include "LFUK.cpp"
+#include "LFUK.h"
 #include "ARC/ARCCache.cpp"
 
 std::vector<int> generateHotspot(uint32_t workingSetSize, uint32_t accessCount) {

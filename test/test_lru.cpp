@@ -87,7 +87,7 @@ int main() {
     return 0;
 }
 
-#include "LRU-K.cpp"
+#include "LRUK.cpp"
 
 void test_lruk_basic() {
     std::cout << "Running test: LRU-K Basic..." << std::endl;

@@ -2,7 +2,7 @@
 #include <vector>
 #include <random>
 #include "LRU.h"
-#include "LFUK.cpp"
+#include "LFUK.h"
 #include "ARC/ARCCache.cpp"
 
 int main() {

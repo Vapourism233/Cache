@@ -3,8 +3,8 @@
 #include <cmath>
 #include <thread>
 #include <mutex>
-#include "LRU.h"
-#include "LRUK.h"
+#include "headers/LRU.h"
+#include "headers/LRUK.h"
 
 template <typename Key, typename Value>
 class HashLRUKCache {

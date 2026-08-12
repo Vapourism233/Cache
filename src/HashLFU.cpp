@@ -1,8 +1,9 @@
-#include "LFUK.cpp"
+#include "headers/LFUK.h"
 #include <cmath>
 #include <algorithm>
 #include <thread>
 #include <mutex>
+#include <vector>
 
 template<typename Key, typename Value>
 class LFUHashCache {

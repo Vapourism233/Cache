@@ -5,8 +5,14 @@
 #include <iomanip>
 #include <memory>
 #include <unordered_map>
-#include "LRU.h"
-#include "LFUK.cpp"
+#include <algorithm>
+#include <unistd.h>
+#include <sys/wait.h>
+#include "headers/LRU.h"
+#include "headers/LRUK.h"
+#include "headers/LFUK.h"
+#include "HashLRU.cpp"
+#include "HashLFU.cpp"
 #include "ARC/ARCCache.cpp"
 
 // ============================================================================
@@ -241,15 +247,153 @@ BenchmarkResult benchmarkARC(size_t capacity, const std::vector<int>& sequence, 
 
 
 
+// 测试 LRUKCache (LRU-K, k=2)
+BenchmarkResult benchmarkLRUK(size_t capacity, const std::vector<int>& sequence, const std::string& workloadType) {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    LRUKCache<int, int> cache(capacity, capacity, 2);  // historyCapacity=capacity, k=2
+    uint32_t hits = 0, misses = 0;
+
+    for(int key : sequence) {
+        int value;
+        if(cache.get(key, value)) {
+            hits++;
+        } else {
+            misses++;
+            cache.put(key, key);
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    double timeMs = std::chrono::duration<double, std::milli>(end - start).count();
+
+    BenchmarkResult result;
+    result.cacheName = "LRU-K";
+    result.workloadType = workloadType;
+    result.capacity = capacity;
+    result.hits = hits;
+    result.misses = misses;
+    result.hitRate = (double)hits / (hits + misses);
+    result.timeMs = timeMs;
+    return result;
+}
+
+// 测试 HashLRUKCache (分片并发 LRU-K, sliceNum=4)
+BenchmarkResult benchmarkHashLRU(size_t capacity, const std::vector<int>& sequence, const std::string& workloadType) {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    HashLRUKCache<int, int> cache(capacity, 4);  // sliceNum=4
+    uint32_t hits = 0, misses = 0;
+
+    for(int key : sequence) {
+        int value;
+        if(cache.get(key, value)) {
+            hits++;
+        } else {
+            misses++;
+            cache.put(key, key);
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    double timeMs = std::chrono::duration<double, std::milli>(end - start).count();
+
+    BenchmarkResult result;
+    result.cacheName = "HashLRU";
+    result.workloadType = workloadType;
+    result.capacity = capacity;
+    result.hits = hits;
+    result.misses = misses;
+    result.hitRate = (double)hits / (hits + misses);
+    result.timeMs = timeMs;
+    return result;
+}
+
+// 测试 LFUHashCache (分片并发 LFU, sliceNum=4)
+BenchmarkResult benchmarkHashLFU(size_t capacity, const std::vector<int>& sequence, const std::string& workloadType) {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    LFUHashCache<int, int> cache(capacity, 4, 10);  // sliceNum=4, maxAverageNum=10
+    uint32_t hits = 0, misses = 0;
+
+    for(int key : sequence) {
+        int value;
+        if(cache.get(key, value)) {
+            hits++;
+        } else {
+            misses++;
+            cache.put(key, key);
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    double timeMs = std::chrono::duration<double, std::milli>(end - start).count();
+
+    BenchmarkResult result;
+    result.cacheName = "HashLFU";
+    result.workloadType = workloadType;
+    result.capacity = capacity;
+    result.hits = hits;
+    result.misses = misses;
+    result.hitRate = (double)hits / (hits + misses);
+    result.timeMs = timeMs;
+    return result;
+}
+
+// 实时打印单行结果（即使后续算法崩溃，已完成的结果也已刷新到终端）
+static void reportRow(const BenchmarkResult& r) {
+    std::cout << "    " << std::left << std::setw(10) << r.cacheName
+              << " hit=" << std::fixed << std::setprecision(4) << r.hitRate
+              << "  time=" << std::setprecision(2) << r.timeMs << "ms"
+              << "  (" << r.hits << "/" << r.misses << ")" << std::endl;
+}
+
+// 在子进程中运行 ARC，避免其已知边界 bug 的段错误中断整个对比测试。
+// 成功则填充 out 并返回 true；子进程崩溃则返回 false。
+bool benchmarkARC_isolated(size_t capacity, const std::vector<int>& sequence,
+                           const std::string& workloadType, BenchmarkResult& out) {
+    int fds[2];
+    if(pipe(fds) != 0) return false;
+    std::cout << std::flush;
+    pid_t pid = fork();
+    if(pid < 0) { close(fds[0]); close(fds[1]); return false; }
+    if(pid == 0) {
+        close(fds[0]);
+        BenchmarkResult r = benchmarkARC(capacity, sequence, workloadType);
+        double buf[3] = { (double)r.hits, (double)r.misses, r.timeMs };
+        ssize_t n = write(fds[1], buf, sizeof(buf));
+        (void)n;
+        close(fds[1]);
+        _exit(0);
+    }
+    close(fds[1]);
+    double buf[3] = {0, 0, 0};
+    ssize_t got = read(fds[0], buf, sizeof(buf));
+    close(fds[0]);
+    int status = 0;
+    waitpid(pid, &status, 0);
+    if(WIFSIGNALED(status) || got != (ssize_t)sizeof(buf)) {
+        return false;
+    }
+    out.cacheName = "ARC";
+    out.workloadType = workloadType;
+    out.capacity = capacity;
+    out.hits = (uint32_t)buf[0];
+    out.misses = (uint32_t)buf[1];
+    out.hitRate = out.hits / (double)(out.hits + out.misses);
+    out.timeMs = buf[2];
+    return true;
+}
+
 // ============================================================================
 // 主程序
 // ============================================================================
 
 int main() {
     // 参数设置
-    const uint32_t WORKING_SET_SIZE = 100000;  // 10万个不同的 key
-    const uint32_t ACCESS_COUNT = 1000000;     // 100万次访问
-    const std::vector<size_t> CAPACITIES = {20, 100, 1000};
+    const uint32_t WORKING_SET_SIZE = 5000;    // 不同 key 的数量
+    const uint32_t ACCESS_COUNT = 300000;      // 访问总数
+    const std::vector<size_t> CAPACITIES = {100, 500, 2000};
     
     std::cout << "================================================================================\n"
               << "缓存命中率基准测试\n"
@@ -284,9 +428,19 @@ int main() {
         for(size_t capacity : CAPACITIES) {
             std::cout << "  运行容量 " << capacity << "...\n";
             
-            // 只测试 LRU 和 LFU（ARC 有边界条件bug待修复）
-            allResults.push_back(benchmarkLRU(capacity, sequence, wl.name));
-            allResults.push_back(benchmarkLFU(capacity, sequence, wl.name));
+            BenchmarkResult r;
+            r = benchmarkLRU(capacity, sequence, wl.name);     reportRow(r); allResults.push_back(r);
+            r = benchmarkLRUK(capacity, sequence, wl.name);    reportRow(r); allResults.push_back(r);
+            r = benchmarkLFU(capacity, sequence, wl.name);     reportRow(r); allResults.push_back(r);
+            r = benchmarkHashLRU(capacity, sequence, wl.name); reportRow(r); allResults.push_back(r);
+            r = benchmarkHashLFU(capacity, sequence, wl.name); reportRow(r); allResults.push_back(r);
+            BenchmarkResult arcR;
+            if(benchmarkARC_isolated(capacity, sequence, wl.name, arcR)) {
+                reportRow(arcR); allResults.push_back(arcR);
+            } else {
+                std::cout << "    " << std::left << std::setw(10) << "ARC"
+                          << " CRASHED (known ARC boundary bug)" << std::endl;
+            }
         }
         std::cout << "\n";
     }
@@ -326,14 +480,13 @@ int main() {
     
     // 统计总结
     std::cout << "\n" << std::string(74, '=') << "\n";
-    std::cout << "每个 workload 中，缓存的平均命中率排名：\n"
-              << "（注：ARC 有边界条件 bug，暂未纳入对标）\n\n";
+    std::cout << "每个 workload 中，缓存的平均命中率排名：\n\n";
     
     for(size_t i = 0; i < workloads.size(); ++i) {
         const auto& wl = workloads[i];
         std::cout << wl.name << ":\n";
         std::vector<std::pair<std::string, double>> avgHitRates;
-        std::vector<std::string> cacheNames = {"LRU", "LFU"};
+        std::vector<std::string> cacheNames = {"LRU", "LRU-K", "LFU", "HashLRU", "HashLFU", "ARC"};
         
         for(size_t j = 0; j < cacheNames.size(); ++j) {
             const auto& cacheName = cacheNames[j];

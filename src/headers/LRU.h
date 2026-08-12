@@ -37,8 +37,27 @@ public:
     }
 };
 
+// Abstract cache policy interface.
+// Declares the core operations every cache replacement policy
+// (LRU, LRU-K, LFU, ARC, ...) must provide, without any concrete implementation.
 template<typename Key, typename Value>
-class LRUCache{
+class CachePolicy {
+public:
+    virtual ~CachePolicy() = default;
+
+    // Insert a new key/value pair, or update the value if the key already exists.
+    virtual void put(Key key, Value value) = 0;
+
+    // Look up a key. On a hit, write the stored value into `value` and return true;
+    // on a miss, return false.
+    virtual bool get(Key key, Value& value) = 0;
+
+    // Remove a key from the cache if it is present.
+    virtual void remove(Key key) = 0;
+};
+
+template<typename Key, typename Value>
+class LRUCache : public CachePolicy<Key, Value>{
 public:
 
     // methods for LRU-K
@@ -88,7 +107,7 @@ private:
     }
 
     public:
-    void remove(Key key) {
+    void remove(Key key) override {
         if(cache.find(key) != cache.end()){
             std::shared_ptr<Node<Key, Value>> node = cache[key];
             removeNode(node);
@@ -101,7 +120,7 @@ public:
         this->capacity = capacity;
     }
     
-    bool get(Key key, Value& value){
+    bool get(Key key, Value& value) override {
         // corner case
         if(cache.find(key) == cache.end()){
             return false;
@@ -116,7 +135,7 @@ public:
     // put method has done the following things:
     // 1. If the key already exists, update the value and move the node to the end of the list.
     // 2. If the key does not exist, insert a new node to the end of the list. If the cache is full, remove the least recently used item before inserting the new node.
-    void put(Key key, Value val){
+    void put(Key key, Value val) override {
         if(capacity <= 0){
             return;
         }

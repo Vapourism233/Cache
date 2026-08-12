@@ -1,6 +1,6 @@
 #pragma once
-#include "ARCLFUPart.cpp"
-#include "ARCLRUPart.cpp"
+#include "ARCLFUPart.h"
+#include "ARCLRUPart.h"
 #include <memory>
 #include <unordered_map>
 

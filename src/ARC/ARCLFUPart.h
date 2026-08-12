@@ -44,6 +44,7 @@ private:
     void addToFreqList(NodePtr node, size_t freq) {
         freqToFreqList_[freq].push_front(node);
         node->setFreq(freq);
+        minFreq_ = std::min(minFreq_, freq);
     }
     
     void increaseFreq(NodePtr node) {
@@ -55,7 +56,20 @@ private:
     }
 
     void evictLowestFreq(){
-        NodePtr nodeToRemove = freqToFreqList_[minFreq_].back();
+        if(mainCache_.empty()) {
+            return;
+        }
+        // minFreq_ may be stale (not updated on time); re-sync it to a real, non-empty
+        // bucket and use find() so we don't create a phantom empty bucket via operator[].
+        auto it = freqToFreqList_.find(minFreq_);
+        if(it == freqToFreqList_.end() || it->second.empty()) {
+            updateMinFreq();
+            it = freqToFreqList_.find(minFreq_);
+            if(it == freqToFreqList_.end() || it->second.empty()) {
+                return;
+            }
+        }
+        NodePtr nodeToRemove = it->second.back();
         removeFromFreqList(nodeToRemove);
         mainCache_.erase(nodeToRemove->getKey());
         if(ghostCache_.size() >= ghost_capacity_) {
@@ -95,6 +109,7 @@ private:
     void addToFreqList(NodePtr node) {
         size_t freq = node->getFreq();
         freqToFreqList_[freq].push_front(node);
+        minFreq_ = std::min(minFreq_, freq);
     }
 
     void updateMinFreq() {

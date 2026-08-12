@@ -114,10 +114,11 @@ bool checkGhost(const Key& key) {
         auto it = ghostCache_.find(key);
         if(it != ghostCache_.end()){
             if(mainCache_.size() <= capacity_){
-                mainCache_[key] = it->second;
+                NodePtr node = it->second;
                 ghostCache_.erase(key);
-                removeFromGhost(it->second);
-                addToFront(it->second);
+                removeFromGhost(node);
+                mainCache_[key] = node;
+                addToFront(node);
                 return true;
             }
         }
