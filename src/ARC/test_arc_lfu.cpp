@@ -109,6 +109,7 @@ static void testGhostHitGrowsCapacity() {
     CHECK(hit, "ghost hit returns true");
     CHECK(v == 100, "revived value is original 100");
     CHECK(c.inMainCache(1), "key 1 revived into main cache");
+    CHECK(!c.inGhostCache(1), "key 1 removed from ghost after revival");
     CHECK(c.getCapacity() == capBefore + 1, "capacity grew by 1 on ghost hit");
 }
 

@@ -180,11 +180,13 @@ public:
                     removeFromGhost(node);
                     addToFreqList(node);
                     // here we should increase capacity since we are reviving from ghost
+                    increaseCapacity();
                     value = node->getValue();
                     return true;
                 }
                 else {
                     // here we should increase capacity since we are reviving from ghost
+                    increaseCapacity();
                     mainCache_[key] = node;
                     ghostCache_.erase(key);
                     removeFromGhost(node);
