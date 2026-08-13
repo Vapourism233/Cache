@@ -15,7 +15,6 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential
 
       # 3. Configure the Cmake project
       - name: Configure CMake

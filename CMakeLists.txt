@@ -23,6 +23,10 @@ target_include_directories(cache_common INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/headers")
 target_link_libraries(cache_common INTERFACE Threads::Threads)
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(cache_common INTERFACE -Wall -Wextra -Wpedantic -Werror) # this sentences warnings to stderr, but does not stop compilation
+endif()
+
 # ---- Tests -----------------------------------------------------------------
 enable_testing()
 
