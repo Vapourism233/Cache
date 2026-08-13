@@ -1,0 +1,30 @@
+name: Cache Push Unit Tests
+
+on: [push]
+
+jobs:
+  build-and-test:
+    runs-on: [self-hosted, windows]
+
+    steps:
+      # 1. Pull code from the repo
+      - name: Checkout code
+        uses: actions/checkout@v4 # Checkout the repository code, v4 is the latest version of the checkout action
+      
+      # 2. Install dependencies
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      # 3. Configure the Cmake project
+      - name: Configure CMake
+        run: cmake -B build -S . # Configure the CMake project and generate build files in the 'build' directory, -S for source directory, -B for build directory
+
+      # 4. Compile the test executables
+      - name: Build Tests
+        run: cmake --build build -j $(nproc) # Build the project using the generated build files, -j for parallel build
+
+      # 5. Execute CTest
+      - name: Run CTest
+        run: cd build && ctest --output-on-failure
