@@ -186,7 +186,7 @@ public:
                 }
                 else {
                     // here we should increase capacity since we are reviving from ghost
-                    increaseCapacity;
+                    increaseCapacity();
                     mainCache_[key] = node;
                     ghostCache_.erase(key);
                     removeFromGhost(node);
